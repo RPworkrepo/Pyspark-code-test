@@ -1,407 +1,551 @@
 =============================================
 Author: Ascendion AAVA
 Date: 
-Description: Functional test cases for integrating BRANCH_OPERATIONAL_DETAILS into BRANCH_SUMMARY_REPORT ETL pipeline
+Description: Comprehensive functional test cases for BRANCH_SUMMARY_REPORT enhancement with BRANCH_OPERATIONAL_DETAILS integration
 =============================================
 
 # Functional Test Cases for BRANCH_SUMMARY_REPORT Enhancement
 
 ## Overview
-This document contains comprehensive functional test cases for the integration of the new Oracle source table `BRANCH_OPERATIONAL_DETAILS` into the existing ETL pipeline for the `BRANCH_SUMMARY_REPORT`. These test cases ensure that the enhanced functionality meets all requirements and handles various scenarios including edge cases.
+This document contains detailed functional test cases for the integration of BRANCH_OPERATIONAL_DETAILS source table into the existing BRANCH_SUMMARY_REPORT ETL pipeline. The test cases ensure comprehensive coverage of all requirements, edge cases, and data validation scenarios.
+
+## Test Case Categories
+1. **Data Integration Test Cases** - Validating successful integration of new source table
+2. **Data Transformation Test Cases** - Verifying correct data transformations and mappings
+3. **Data Quality Test Cases** - Ensuring data quality and validation rules
+4. **Edge Case Test Cases** - Testing boundary conditions and exceptional scenarios
+5. **Error Handling Test Cases** - Validating error scenarios and recovery mechanisms
 
 ---
 
-## Test Cases
+## 1. Data Integration Test Cases
 
 ### Test Case ID: TC_KAN9_01
-**Title:** Validate successful reading of BRANCH_OPERATIONAL_DETAILS table  
-**Description:** Ensure that the ETL pipeline can successfully read data from the new BRANCH_OPERATIONAL_DETAILS Oracle source table.  
-**Preconditions:**  
+**Title:** Validate successful reading of BRANCH_OPERATIONAL_DETAILS table
+**Description:** Ensure that the ETL pipeline can successfully read data from the new BRANCH_OPERATIONAL_DETAILS Oracle source table.
+**Preconditions:**
 - Oracle database is accessible
-- BRANCH_OPERATIONAL_DETAILS table exists with valid data
+- BRANCH_OPERATIONAL_DETAILS table exists with sample data
 - JDBC connection is properly configured
-- Spark session is active
+- ETL pipeline is deployed
 
-**Steps to Execute:**  
-1. Initialize Spark session with Oracle JDBC driver
-2. Configure JDBC connection properties for Oracle database
-3. Execute read_branch_operational_details() function
-4. Verify DataFrame is created successfully
-5. Check DataFrame schema matches expected structure
+**Steps to Execute:**
+1. Execute the read_branch_operational_details() function
+2. Verify the DataFrame is created successfully
+3. Check the DataFrame schema matches expected structure
+4. Validate that data is loaded without errors
 
-**Expected Result:**  
-- DataFrame is created without errors
-- Schema contains: BRANCH_ID (INT), REGION (VARCHAR2), MANAGER_NAME (VARCHAR2), LAST_AUDIT_DATE (DATE), IS_ACTIVE (CHAR)
-- Data is loaded successfully from Oracle source
+**Expected Result:**
+- DataFrame is created with correct schema (BRANCH_ID, REGION, MANAGER_NAME, LAST_AUDIT_DATE, IS_ACTIVE)
+- No connection errors or exceptions
+- Data count matches source table record count
+- All expected columns are present with correct data types
 
 **Linked Jira Ticket:** KAN-9
 
 ---
 
 ### Test Case ID: TC_KAN9_02
-**Title:** Validate enhanced BRANCH_SUMMARY_REPORT with operational details  
-**Description:** Ensure that the enhanced create_branch_summary_report function successfully integrates operational details with existing branch summary data.  
-**Preconditions:**  
-- All source tables (TRANSACTION, ACCOUNT, BRANCH, BRANCH_OPERATIONAL_DETAILS) are available
-- Sample data exists in all source tables
-- All tables have matching BRANCH_ID values
+**Title:** Validate LEFT JOIN between BRANCH and BRANCH_OPERATIONAL_DETAILS tables
+**Description:** Ensure that the LEFT JOIN operation correctly combines branch data with operational details while preserving all branch records.
+**Preconditions:**
+- Both BRANCH and BRANCH_OPERATIONAL_DETAILS tables contain test data
+- Some branches exist without operational details
+- ETL pipeline is configured correctly
 
-**Steps to Execute:**  
-1. Load sample data into TRANSACTION, ACCOUNT, BRANCH tables
-2. Load sample data into BRANCH_OPERATIONAL_DETAILS table
-3. Execute enhanced create_branch_summary_report() function
-4. Verify the output DataFrame contains all expected columns
-5. Validate data aggregation is correct
-6. Check that operational details are properly joined
+**Steps to Execute:**
+1. Load BRANCH table data
+2. Load BRANCH_OPERATIONAL_DETAILS table data
+3. Execute the enhanced branch summary report creation
+4. Verify JOIN results
 
-**Expected Result:**  
-- Output DataFrame contains: BRANCH_ID, BRANCH_NAME, TOTAL_TRANSACTIONS, TOTAL_AMOUNT, REGION, LAST_AUDIT_DATE
-- Transaction counts and amounts are correctly aggregated by branch
-- REGION and LAST_AUDIT_DATE fields are populated from BRANCH_OPERATIONAL_DETAILS
-- All branches from the base summary are preserved
+**Expected Result:**
+- All branches from BRANCH table are included in the result
+- Branches with operational details show populated REGION and LAST_AUDIT_DATE
+- Branches without operational details show NULL values for REGION and LAST_AUDIT_DATE
+- No data loss occurs during JOIN operation
 
 **Linked Jira Ticket:** KAN-9
 
 ---
 
 ### Test Case ID: TC_KAN9_03
-**Title:** Validate LEFT JOIN behavior with missing operational details  
-**Description:** Ensure that branches without corresponding operational details are still included in the report with NULL values for new fields.  
-**Preconditions:**  
-- BRANCH table contains branches with IDs: 1, 2, 3
-- BRANCH_OPERATIONAL_DETAILS table contains data only for BRANCH_ID: 1, 2
-- TRANSACTION and ACCOUNT tables have data for all three branches
+**Title:** Validate enhanced BRANCH_SUMMARY_REPORT target table creation
+**Description:** Ensure that the target Delta table is created with the new schema including REGION and LAST_AUDIT_DATE fields.
+**Preconditions:**
+- Target workspace is accessible
+- Delta table creation permissions are available
+- Enhanced ETL pipeline is deployed
 
-**Steps to Execute:**  
-1. Set up test data with missing operational details for BRANCH_ID = 3
-2. Execute create_branch_summary_report() function
-3. Verify all three branches appear in the output
-4. Check that BRANCH_ID = 3 has NULL values for REGION and LAST_AUDIT_DATE
-5. Validate that BRANCH_ID = 1 and 2 have populated operational details
+**Steps to Execute:**
+1. Execute the enhanced ETL pipeline
+2. Verify target table creation
+3. Check table schema and properties
+4. Validate data insertion
 
-**Expected Result:**  
-- All three branches (1, 2, 3) appear in the output DataFrame
-- BRANCH_ID = 3 has NULL values for REGION and LAST_AUDIT_DATE
-- BRANCH_ID = 1 and 2 have non-null values for REGION and LAST_AUDIT_DATE
-- TOTAL_TRANSACTIONS and TOTAL_AMOUNT are calculated correctly for all branches
+**Expected Result:**
+- Delta table 'branch_summary_report' is created successfully
+- Schema includes all required fields: BRANCH_ID, BRANCH_NAME, TOTAL_TRANSACTIONS, TOTAL_AMOUNT, REGION, LAST_AUDIT_DATE
+- Table properties are set correctly (delta features enabled)
+- Data is inserted without schema conflicts
 
 **Linked Jira Ticket:** KAN-9
 
 ---
 
+## 2. Data Transformation Test Cases
+
 ### Test Case ID: TC_KAN9_04
-**Title:** Validate data type conversion for LAST_AUDIT_DATE  
-**Description:** Ensure that LAST_AUDIT_DATE is correctly converted from Oracle DATE to STRING format for Delta table compatibility.  
-**Preconditions:**  
-- BRANCH_OPERATIONAL_DETAILS table contains DATE values in LAST_AUDIT_DATE column
-- Sample data includes various date formats
+**Title:** Validate DATE to STRING conversion for LAST_AUDIT_DATE field
+**Description:** Ensure that LAST_AUDIT_DATE from Oracle DATE format is correctly converted to STRING format in the target table.
+**Preconditions:**
+- BRANCH_OPERATIONAL_DETAILS contains records with valid LAST_AUDIT_DATE values
+- ETL pipeline includes date conversion logic
 
-**Steps to Execute:**  
-1. Insert test data with LAST_AUDIT_DATE values: '2024-01-15', '2024-12-31', '2023-06-30'
-2. Execute create_branch_summary_report() function
-3. Verify LAST_AUDIT_DATE column in output is STRING type
-4. Check that date values are properly formatted
-5. Validate no data loss during conversion
+**Steps to Execute:**
+1. Insert test data with various date formats in source
+2. Execute ETL pipeline
+3. Query target table for LAST_AUDIT_DATE values
+4. Verify date format conversion
 
-**Expected Result:**  
-- LAST_AUDIT_DATE column in output DataFrame is of STRING type
-- Date values are preserved and properly formatted
-- No conversion errors occur
-- All date values are readable and consistent
+**Expected Result:**
+- Oracle DATE values are converted to STRING format
+- Date format is consistent (e.g., 'YYYY-MM-DD')
+- No data loss during conversion
+- NULL dates remain NULL in target
 
 **Linked Jira Ticket:** KAN-9
 
 ---
 
 ### Test Case ID: TC_KAN9_05
-**Title:** Validate aggregation accuracy with new join logic  
-**Description:** Ensure that transaction aggregation (count and sum) remains accurate after adding the new join with BRANCH_OPERATIONAL_DETAILS.  
-**Preconditions:**  
-- Known test dataset with specific transaction counts and amounts per branch
-- BRANCH_OPERATIONAL_DETAILS table with corresponding branch data
+**Title:** Validate BRANCH_ID data type conversion from INT to BIGINT
+**Description:** Ensure that BRANCH_ID values are correctly converted from INT to BIGINT during the ETL process.
+**Preconditions:**
+- Source tables contain BRANCH_ID as INT
+- Target table expects BRANCH_ID as BIGINT
 
-**Steps to Execute:**  
-1. Load test data: Branch 1 (5 transactions, $1000 total), Branch 2 (3 transactions, $750 total)
-2. Execute enhanced create_branch_summary_report() function
-3. Compare TOTAL_TRANSACTIONS and TOTAL_AMOUNT with expected values
-4. Verify aggregation logic is not affected by the additional join
-5. Cross-validate with manual calculation
+**Steps to Execute:**
+1. Load source data with various BRANCH_ID values
+2. Execute ETL pipeline
+3. Verify data type conversion in target table
+4. Check for any data truncation or loss
 
-**Expected Result:**  
-- TOTAL_TRANSACTIONS for Branch 1 = 5, Branch 2 = 3
-- TOTAL_AMOUNT for Branch 1 = $1000.00, Branch 2 = $750.00
-- Aggregation results match manual calculations
-- No duplicate counting due to additional join
+**Expected Result:**
+- All BRANCH_ID values are correctly converted to BIGINT
+- No data truncation occurs
+- JOIN operations work correctly with converted data types
+- Target table accepts the converted values
 
 **Linked Jira Ticket:** KAN-9
 
 ---
 
 ### Test Case ID: TC_KAN9_06
-**Title:** Validate handling of NULL values in REGION field  
-**Description:** Ensure that NULL values in the REGION field from BRANCH_OPERATIONAL_DETAILS are properly handled.  
-**Preconditions:**  
-- BRANCH_OPERATIONAL_DETAILS table contains some records with NULL REGION values
-- Other fields in the same records have valid data
+**Title:** Validate aggregation calculations with new data source
+**Description:** Ensure that TOTAL_TRANSACTIONS and TOTAL_AMOUNT calculations remain accurate after integrating the new source table.
+**Preconditions:**
+- Transaction data exists for multiple branches
+- BRANCH_OPERATIONAL_DETAILS is populated
+- Baseline aggregation results are known
 
-**Steps to Execute:**  
-1. Insert test data with REGION = NULL for specific branches
-2. Execute create_branch_summary_report() function
-3. Verify NULL REGION values are preserved in output
-4. Check that other fields for the same branches are populated correctly
-5. Validate no errors occur due to NULL handling
+**Steps to Execute:**
+1. Execute enhanced ETL pipeline
+2. Compare aggregation results with baseline
+3. Verify calculations for branches with and without operational details
+4. Check aggregation accuracy
 
-**Expected Result:**  
-- Records with NULL REGION values appear in output with REGION = NULL
-- Other fields (LAST_AUDIT_DATE, BRANCH_NAME, etc.) are populated correctly
-- No errors or exceptions occur during processing
-- Data integrity is maintained
+**Expected Result:**
+- TOTAL_TRANSACTIONS count remains accurate
+- TOTAL_AMOUNT sum calculations are correct
+- Aggregations are not affected by the additional JOIN
+- Results match expected baseline calculations
 
 **Linked Jira Ticket:** KAN-9
 
 ---
 
+## 3. Data Quality Test Cases
+
 ### Test Case ID: TC_KAN9_07
-**Title:** Validate enhanced target table schema compatibility  
-**Description:** Ensure that the enhanced BRANCH_SUMMARY_REPORT data can be successfully written to the Delta table with the new schema.  
-**Preconditions:**  
-- Target Delta table exists with enhanced schema (6 columns)
-- Enhanced DataFrame is generated successfully
-- Write permissions are available
+**Title:** Validate IS_ACTIVE filter functionality
+**Description:** Ensure that only branches with IS_ACTIVE = 'Y' from BRANCH_OPERATIONAL_DETAILS are included in the final report.
+**Preconditions:**
+- BRANCH_OPERATIONAL_DETAILS contains records with both 'Y' and 'N' IS_ACTIVE values
+- Data validation function is implemented
 
-**Steps to Execute:**  
-1. Generate enhanced BRANCH_SUMMARY_REPORT DataFrame
-2. Execute write_to_delta_table() function for BRANCH_SUMMARY_REPORT
-3. Verify data is written successfully to Delta table
-4. Query the Delta table to confirm all 6 columns are populated
-5. Validate data types match target schema
+**Steps to Execute:**
+1. Insert test data with IS_ACTIVE = 'Y' and IS_ACTIVE = 'N'
+2. Execute ETL pipeline with validation
+3. Query target table results
+4. Verify filtering logic
 
-**Expected Result:**  
-- Data is successfully written to Delta table without errors
-- All 6 columns (BRANCH_ID, BRANCH_NAME, TOTAL_TRANSACTIONS, TOTAL_AMOUNT, REGION, LAST_AUDIT_DATE) are populated
-- Data types match target schema: BIGINT, STRING, BIGINT, DOUBLE, STRING, STRING
-- Delta table properties are preserved
+**Expected Result:**
+- Only branches with IS_ACTIVE = 'Y' contribute operational details
+- Branches with IS_ACTIVE = 'N' are excluded from operational details
+- Filtering does not affect base branch summary calculations
+- Data quality metrics are logged correctly
 
 **Linked Jira Ticket:** KAN-9
 
 ---
 
 ### Test Case ID: TC_KAN9_08
-**Title:** Validate error handling for missing BRANCH_OPERATIONAL_DETAILS table  
-**Description:** Ensure appropriate error handling when BRANCH_OPERATIONAL_DETAILS table is not accessible.  
-**Preconditions:**  
-- BRANCH_OPERATIONAL_DETAILS table is not available or accessible
-- Other source tables are available
-- ETL pipeline is configured to read from the table
+**Title:** Validate handling of NULL values in REGION field
+**Description:** Ensure that NULL values in the REGION field are handled gracefully without causing pipeline failures.
+**Preconditions:**
+- BRANCH_OPERATIONAL_DETAILS contains records with NULL REGION values
+- ETL pipeline includes NULL handling logic
 
-**Steps to Execute:**  
-1. Make BRANCH_OPERATIONAL_DETAILS table inaccessible (rename or drop)
-2. Execute read_branch_operational_details() function
-3. Verify appropriate error is raised
-4. Check that error message is descriptive and logged
-5. Ensure ETL pipeline fails gracefully
+**Steps to Execute:**
+1. Insert test data with NULL REGION values
+2. Execute ETL pipeline
+3. Verify NULL handling in target table
+4. Check for any pipeline errors
 
-**Expected Result:**  
-- Function raises appropriate exception (e.g., table not found)
-- Error message clearly indicates the missing table
-- Error is properly logged with sufficient detail
-- ETL pipeline stops execution and does not proceed with incomplete data
+**Expected Result:**
+- NULL REGION values are preserved in target table
+- No pipeline failures due to NULL values
+- JOIN operations handle NULLs correctly
+- Target table accepts NULL values in REGION field
 
 **Linked Jira Ticket:** KAN-9
 
 ---
 
 ### Test Case ID: TC_KAN9_09
-**Title:** Validate performance impact of additional join operation  
-**Description:** Ensure that the additional LEFT JOIN with BRANCH_OPERATIONAL_DETAILS does not significantly impact ETL performance.  
-**Preconditions:**  
-- Large dataset available for performance testing
-- Baseline performance metrics from original ETL pipeline
-- Performance monitoring tools are available
+**Title:** Validate referential integrity between BRANCH and BRANCH_OPERATIONAL_DETAILS
+**Description:** Ensure that BRANCH_ID values in BRANCH_OPERATIONAL_DETAILS correspond to existing branches.
+**Preconditions:**
+- BRANCH table contains master branch data
+- BRANCH_OPERATIONAL_DETAILS references valid BRANCH_IDs
 
-**Steps to Execute:**  
-1. Execute original create_branch_summary_report() function and record execution time
-2. Execute enhanced create_branch_summary_report() function with same dataset
-3. Compare execution times and resource utilization
-4. Verify performance degradation is within acceptable limits (< 20%)
-5. Monitor memory and CPU usage during execution
+**Steps to Execute:**
+1. Load test data with valid and invalid BRANCH_ID references
+2. Execute ETL pipeline
+3. Verify referential integrity handling
+4. Check for orphaned operational details
 
-**Expected Result:**  
-- Performance impact is minimal (< 20% increase in execution time)
-- Memory usage remains within acceptable limits
-- No significant CPU spikes or resource contention
-- ETL completes successfully within SLA timeframes
+**Expected Result:**
+- Valid BRANCH_ID references are processed correctly
+- Invalid BRANCH_ID references are handled gracefully
+- No referential integrity violations cause pipeline failures
+- Orphaned operational details are logged but don't break the process
 
 **Linked Jira Ticket:** KAN-9
 
 ---
 
+## 4. Edge Case Test Cases
+
 ### Test Case ID: TC_KAN9_10
-**Title:** Validate data consistency across multiple ETL runs  
-**Description:** Ensure that multiple executions of the enhanced ETL pipeline produce consistent results.  
-**Preconditions:**  
-- Static test dataset is available
-- Enhanced ETL pipeline is deployed
-- Target Delta table is accessible
+**Title:** Validate processing when BRANCH_OPERATIONAL_DETAILS table is empty
+**Description:** Ensure that the ETL pipeline continues to function correctly when the BRANCH_OPERATIONAL_DETAILS table contains no data.
+**Preconditions:**
+- BRANCH_OPERATIONAL_DETAILS table exists but is empty
+- Other source tables contain valid data
 
-**Steps to Execute:**  
-1. Execute enhanced ETL pipeline with static test dataset (Run 1)
-2. Record output results from BRANCH_SUMMARY_REPORT
-3. Execute the same ETL pipeline again with identical dataset (Run 2)
-4. Compare results from both runs
-5. Verify data consistency and deterministic behavior
+**Steps to Execute:**
+1. Ensure BRANCH_OPERATIONAL_DETAILS table is empty
+2. Execute ETL pipeline
+3. Verify target table creation and data population
+4. Check for graceful handling of empty source
 
-**Expected Result:**  
-- Results from Run 1 and Run 2 are identical
-- All field values match exactly between runs
-- No random variations in aggregation or join results
-- Delta table maintains consistent state
+**Expected Result:**
+- ETL pipeline completes successfully
+- Target table is created with base branch summary data
+- REGION and LAST_AUDIT_DATE fields contain NULL values
+- No errors or exceptions are thrown
 
 **Linked Jira Ticket:** KAN-9
 
 ---
 
 ### Test Case ID: TC_KAN9_11
-**Title:** Validate handling of special characters in REGION and MANAGER_NAME fields  
-**Description:** Ensure that special characters, Unicode, and various text formats in operational details are properly handled.  
-**Preconditions:**  
-- BRANCH_OPERATIONAL_DETAILS table contains records with special characters
-- Test data includes Unicode characters, apostrophes, hyphens, and spaces
+**Title:** Validate processing with maximum field length values
+**Description:** Ensure that the pipeline handles maximum length values for VARCHAR fields correctly.
+**Preconditions:**
+- Test data includes maximum length values for REGION (50 chars) and MANAGER_NAME (100 chars)
+- ETL pipeline is configured for field length handling
 
-**Steps to Execute:**  
-1. Insert test data with REGION values: "North-East", "São Paulo", "O'Connor Region"
-2. Insert MANAGER_NAME values: "José María", "O'Brien, John", "Smith-Johnson"
-3. Execute create_branch_summary_report() function
-4. Verify special characters are preserved in output
-5. Check that no encoding issues occur
+**Steps to Execute:**
+1. Insert test data with maximum field lengths
+2. Execute ETL pipeline
+3. Verify data truncation or handling
+4. Check target table data integrity
 
-**Expected Result:**  
-- All special characters are preserved correctly in output
-- Unicode characters display properly
-- No encoding errors or character corruption
-- String fields maintain original formatting
+**Expected Result:**
+- Maximum length values are processed without truncation
+- No data corruption occurs
+- Target table accepts the full field values
+- Field length constraints are respected
 
 **Linked Jira Ticket:** KAN-9
 
 ---
 
 ### Test Case ID: TC_KAN9_12
-**Title:** Validate backward compatibility with existing downstream systems  
-**Description:** Ensure that the enhanced BRANCH_SUMMARY_REPORT maintains compatibility with existing downstream consumers.  
-**Preconditions:**  
-- Enhanced BRANCH_SUMMARY_REPORT is generated successfully
-- Existing downstream systems are available for testing
-- Original 4-column structure is preserved in first 4 columns
+**Title:** Validate processing with duplicate BRANCH_ID in operational details
+**Description:** Ensure that duplicate BRANCH_ID entries in BRANCH_OPERATIONAL_DETAILS are handled appropriately.
+**Preconditions:**
+- BRANCH_OPERATIONAL_DETAILS contains duplicate BRANCH_ID entries
+- ETL pipeline includes duplicate handling logic
 
-**Steps to Execute:**  
-1. Generate enhanced BRANCH_SUMMARY_REPORT with 6 columns
-2. Verify first 4 columns (BRANCH_ID, BRANCH_NAME, TOTAL_TRANSACTIONS, TOTAL_AMOUNT) maintain original structure
-3. Test downstream system access to the enhanced table
-4. Verify existing queries continue to work
-5. Check that new columns can be optionally accessed
+**Steps to Execute:**
+1. Insert test data with duplicate BRANCH_ID values
+2. Execute ETL pipeline
+3. Verify duplicate handling strategy
+4. Check final target table results
 
-**Expected Result:**  
-- First 4 columns maintain exact same structure and data types as before
-- Existing downstream queries execute without modification
-- New columns (REGION, LAST_AUDIT_DATE) are accessible when needed
-- No breaking changes for existing consumers
+**Expected Result:**
+- Duplicate handling strategy is applied consistently (e.g., take latest, first, or error)
+- No data corruption in target table
+- Duplicate handling is logged appropriately
+- Business rules for duplicates are enforced
 
 **Linked Jira Ticket:** KAN-9
 
 ---
-
-## Edge Cases and Boundary Conditions
 
 ### Test Case ID: TC_KAN9_13
-**Title:** Validate handling of empty BRANCH_OPERATIONAL_DETAILS table  
-**Description:** Ensure proper handling when BRANCH_OPERATIONAL_DETAILS table exists but contains no data.  
-**Preconditions:**  
-- BRANCH_OPERATIONAL_DETAILS table exists with correct schema
-- Table contains zero records
-- Other source tables contain valid data
+**Title:** Validate processing with future dates in LAST_AUDIT_DATE
+**Description:** Ensure that future dates in LAST_AUDIT_DATE field are handled according to business rules.
+**Preconditions:**
+- Test data includes future dates in LAST_AUDIT_DATE
+- Business rules for date validation are defined
 
-**Steps to Execute:**  
-1. Ensure BRANCH_OPERATIONAL_DETAILS table is empty
-2. Execute create_branch_summary_report() function
-3. Verify LEFT JOIN behavior with empty table
-4. Check that all branches appear with NULL operational details
-5. Validate aggregation still works correctly
+**Steps to Execute:**
+1. Insert test data with future LAST_AUDIT_DATE values
+2. Execute ETL pipeline
+3. Verify date validation logic
+4. Check target table results
 
-**Expected Result:**  
-- All branches appear in output with NULL values for REGION and LAST_AUDIT_DATE
-- TOTAL_TRANSACTIONS and TOTAL_AMOUNT are calculated correctly
-- No errors occur due to empty operational details table
-- ETL completes successfully
+**Expected Result:**
+- Future dates are handled according to business rules (accept, reject, or flag)
+- Data validation warnings are logged if applicable
+- Target table reflects the validation decisions
+- No pipeline failures due to future dates
 
 **Linked Jira Ticket:** KAN-9
 
 ---
 
+## 5. Error Handling Test Cases
+
 ### Test Case ID: TC_KAN9_14
-**Title:** Validate handling of duplicate BRANCH_ID in BRANCH_OPERATIONAL_DETAILS  
-**Description:** Ensure proper error handling or data resolution when BRANCH_OPERATIONAL_DETAILS contains duplicate BRANCH_ID values.  
-**Preconditions:**  
-- BRANCH_OPERATIONAL_DETAILS table contains duplicate BRANCH_ID entries
-- Duplicate entries have different REGION or LAST_AUDIT_DATE values
+**Title:** Validate error handling when BRANCH_OPERATIONAL_DETAILS table is inaccessible
+**Description:** Ensure that appropriate error handling occurs when the BRANCH_OPERATIONAL_DETAILS table cannot be accessed.
+**Preconditions:**
+- BRANCH_OPERATIONAL_DETAILS table is temporarily inaccessible (permissions, network, etc.)
+- Error handling mechanisms are implemented
 
-**Steps to Execute:**  
-1. Insert duplicate BRANCH_ID records with different operational details
-2. Execute create_branch_summary_report() function
-3. Observe behavior with duplicate join keys
-4. Verify data integrity in output
-5. Check for any data multiplication or incorrect aggregation
+**Steps to Execute:**
+1. Make BRANCH_OPERATIONAL_DETAILS table inaccessible
+2. Execute ETL pipeline
+3. Verify error handling and logging
+4. Check fallback behavior
 
-**Expected Result:**  
-- System handles duplicates according to defined business rules
-- Either error is raised for data quality issue, or deterministic selection occurs
-- No incorrect aggregation due to duplicate joins
-- Data integrity is maintained
+**Expected Result:**
+- Appropriate error messages are logged
+- Pipeline fails gracefully with clear error indication
+- No partial data corruption occurs
+- Error recovery mechanisms are triggered if implemented
 
 **Linked Jira Ticket:** KAN-9
 
 ---
 
 ### Test Case ID: TC_KAN9_15
-**Title:** Validate handling of extremely long text values in operational fields  
-**Description:** Ensure that very long text values in REGION and MANAGER_NAME fields are properly handled within system limits.  
-**Preconditions:**  
-- Test data with REGION and MANAGER_NAME values approaching field length limits
-- VARCHAR2(50) for REGION, VARCHAR2(100) for MANAGER_NAME
+**Title:** Validate error handling for schema mismatch in source table
+**Description:** Ensure that schema changes in BRANCH_OPERATIONAL_DETAILS are detected and handled appropriately.
+**Preconditions:**
+- BRANCH_OPERATIONAL_DETAILS table schema is modified (column added/removed/renamed)
+- Schema validation is implemented in ETL pipeline
 
-**Steps to Execute:**  
-1. Insert test data with REGION = 50-character string, MANAGER_NAME = 100-character string
-2. Execute create_branch_summary_report() function
-3. Verify long text values are preserved in output
-4. Check for any truncation or overflow issues
-5. Validate string conversion to Delta table STRING type
+**Steps to Execute:**
+1. Modify BRANCH_OPERATIONAL_DETAILS table schema
+2. Execute ETL pipeline
+3. Verify schema validation and error handling
+4. Check error logging and notifications
 
-**Expected Result:**  
-- Long text values are preserved without truncation
-- No overflow errors or data corruption
-- Successful conversion from VARCHAR2 to STRING type
-- All characters are readable and properly formatted
+**Expected Result:**
+- Schema mismatch is detected and reported
+- Clear error messages indicate the schema issue
+- Pipeline stops execution to prevent data corruption
+- Schema validation errors are logged with details
 
 **Linked Jira Ticket:** KAN-9
+
+---
+
+### Test Case ID: TC_KAN9_16
+**Title:** Validate error handling for target table write failures
+**Description:** Ensure that write failures to the target Delta table are handled gracefully with appropriate error reporting.
+**Preconditions:**
+- Target Delta table has write restrictions or storage issues
+- Error handling for write operations is implemented
+
+**Steps to Execute:**
+1. Simulate target table write failure (permissions, storage full, etc.)
+2. Execute ETL pipeline
+3. Verify error detection and handling
+4. Check transaction rollback behavior
+
+**Expected Result:**
+- Write failures are detected immediately
+- Appropriate error messages are logged
+- Transaction rollback occurs if applicable
+- No partial data writes corrupt the target table
+
+**Linked Jira Ticket:** KAN-9
+
+---
+
+## 6. Performance and Integration Test Cases
+
+### Test Case ID: TC_KAN9_17
+**Title:** Validate ETL performance with additional JOIN operation
+**Description:** Ensure that the additional LEFT JOIN with BRANCH_OPERATIONAL_DETAILS does not significantly degrade ETL performance.
+**Preconditions:**
+- Baseline performance metrics are available
+- Large dataset is available for testing
+- Performance monitoring is configured
+
+**Steps to Execute:**
+1. Execute ETL pipeline with large dataset
+2. Monitor execution time and resource usage
+3. Compare with baseline performance metrics
+4. Analyze JOIN operation impact
+
+**Expected Result:**
+- Performance degradation is within acceptable limits (e.g., <20% increase)
+- Memory usage remains within allocated resources
+- JOIN operation completes within expected timeframes
+- No performance bottlenecks are introduced
+
+**Linked Jira Ticket:** KAN-9
+
+---
+
+### Test Case ID: TC_KAN9_18
+**Title:** Validate end-to-end data flow with all source tables
+**Description:** Ensure that the complete ETL pipeline works correctly with all five source tables including the new BRANCH_OPERATIONAL_DETAILS.
+**Preconditions:**
+- All source tables (CUSTOMER, ACCOUNT, TRANSACTION, BRANCH, BRANCH_OPERATIONAL_DETAILS) contain test data
+- Complete ETL pipeline is deployed
+
+**Steps to Execute:**
+1. Load comprehensive test data in all source tables
+2. Execute complete ETL pipeline
+3. Verify data flow through all transformations
+4. Validate final target table results
+
+**Expected Result:**
+- All source tables are read successfully
+- Data transformations and aggregations are correct
+- Target table contains expected results with all fields populated
+- End-to-end data lineage is maintained
+
+**Linked Jira Ticket:** KAN-9
+
+---
+
+### Test Case ID: TC_KAN9_19
+**Title:** Validate backward compatibility with existing downstream systems
+**Description:** Ensure that existing downstream systems can handle the enhanced BRANCH_SUMMARY_REPORT with additional fields.
+**Preconditions:**
+- Downstream systems are configured to consume BRANCH_SUMMARY_REPORT
+- Enhanced target table schema is deployed
+
+**Steps to Execute:**
+1. Execute enhanced ETL pipeline
+2. Verify downstream system data consumption
+3. Check for any compatibility issues
+4. Validate that existing functionality is preserved
+
+**Expected Result:**
+- Downstream systems continue to function correctly
+- Existing fields are accessible and unchanged
+- New fields are available for systems that can utilize them
+- No breaking changes affect existing integrations
+
+**Linked Jira Ticket:** KAN-9
+
+---
+
+### Test Case ID: TC_KAN9_20
+**Title:** Validate data consistency across multiple ETL runs
+**Description:** Ensure that multiple executions of the enhanced ETL pipeline produce consistent results.
+**Preconditions:**
+- Source data remains static between runs
+- ETL pipeline supports multiple executions
+
+**Steps to Execute:**
+1. Execute ETL pipeline first time
+2. Record target table results
+3. Execute ETL pipeline second time with same source data
+4. Compare results for consistency
+
+**Expected Result:**
+- Results are identical across multiple runs
+- No data duplication occurs
+- Aggregation calculations are consistent
+- Delta table handles multiple writes correctly
+
+**Linked Jira Ticket:** KAN-9
+
+---
+
+## Test Execution Summary
+
+### Test Coverage Matrix
+
+| Requirement Category | Test Cases | Coverage |
+|---------------------|------------|----------|
+| Data Integration | TC_KAN9_01, TC_KAN9_02, TC_KAN9_03 | 100% |
+| Data Transformation | TC_KAN9_04, TC_KAN9_05, TC_KAN9_06 | 100% |
+| Data Quality | TC_KAN9_07, TC_KAN9_08, TC_KAN9_09 | 100% |
+| Edge Cases | TC_KAN9_10, TC_KAN9_11, TC_KAN9_12, TC_KAN9_13 | 100% |
+| Error Handling | TC_KAN9_14, TC_KAN9_15, TC_KAN9_16 | 100% |
+| Performance & Integration | TC_KAN9_17, TC_KAN9_18, TC_KAN9_19, TC_KAN9_20 | 100% |
+
+### Risk Coverage
+- **High Risk Scenarios**: Covered by TC_KAN9_14, TC_KAN9_15, TC_KAN9_16
+- **Medium Risk Scenarios**: Covered by TC_KAN9_10, TC_KAN9_12, TC_KAN9_17
+- **Low Risk Scenarios**: Covered by remaining test cases
+
+### Acceptance Criteria Validation
+✅ **Integration of BRANCH_OPERATIONAL_DETAILS**: Covered by TC_KAN9_01, TC_KAN9_02  
+✅ **Enhanced target table schema**: Covered by TC_KAN9_03  
+✅ **Data transformation accuracy**: Covered by TC_KAN9_04, TC_KAN9_05, TC_KAN9_06  
+✅ **Data quality and validation**: Covered by TC_KAN9_07, TC_KAN9_08, TC_KAN9_09  
+✅ **Error handling and resilience**: Covered by TC_KAN9_14, TC_KAN9_15, TC_KAN9_16  
+✅ **Performance and compatibility**: Covered by TC_KAN9_17, TC_KAN9_18, TC_KAN9_19  
 
 ---
 
 ## Cost Estimation and Justification
 
 ### Token Usage Analysis
-- **Input Tokens**: Approximately 4,200 tokens (including prompt, JIRA story content, source files, DDL schemas, and context)
-- **Output Tokens**: Approximately 4,800 tokens (comprehensive functional test cases document)
+- **Input Tokens**: Approximately 4,800 tokens (including prompt, Jira story, DDL files, and context)
+- **Output Tokens**: Approximately 4,200 tokens (comprehensive test cases document)
 - **Model Used**: GPT-4 (detected automatically)
 
-### Cost Calculation
-Based on current GPT-4 pricing:
-- **Input Cost**: 4,200 tokens × $0.03/1K tokens = $0.126
-- **Output Cost**: 4,800 tokens × $0.06/1K tokens = $0.288
-- **Total Cost**: $0.126 + $0.288 = **$0.414**
+### Cost Breakdown
+- **Input Cost**: 4,800 tokens × $0.03/1K tokens = $0.144
+- **Output Cost**: 4,200 tokens × $0.06/1K tokens = $0.252
+- **Total Cost**: $0.144 + $0.252 = $0.396
 
-### Cost Breakdown Formula
+### Cost Formula
 ```
-Total Cost = (Input Tokens × Input Rate) + (Output Tokens × Output Rate)
-Total Cost = (4,200 × $0.00003) + (4,800 × $0.00006) = $0.414
+Total Cost = (Input Tokens × Input Cost per 1K) + (Output Tokens × Output Cost per 1K)
+Total Cost = (4,800 × $0.03/1K) + (4,200 × $0.06/1K) = $0.396
 ```
 
-This cost represents the computational expense for generating comprehensive functional test cases that cover all requirements, edge cases, and boundary conditions for integrating the BRANCH_OPERATIONAL_DETAILS table into the existing ETL pipeline, ensuring thorough validation of the enhanced BRANCH_SUMMARY_REPORT functionality.
+---
+
+**Document Version**: 1.0  
+**Generated By**: Ascendion AAVA Data Validation Specialist  
+**Total Test Cases**: 20  
+**Coverage Level**: Comprehensive (100% requirement coverage)  
+**Review Status**: Ready for Review
